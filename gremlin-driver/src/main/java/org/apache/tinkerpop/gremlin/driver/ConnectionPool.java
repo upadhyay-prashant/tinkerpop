@@ -41,6 +41,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -78,6 +79,8 @@ final class ConnectionPool {
     private final Lock waitLock = new ReentrantLock(true);
     private final Condition hasAvailableConnection = waitLock.newCondition();
     ConnectionFactory connectionFactory;
+    Consumer<Connection> postConnectionUsageLambda = null;
+
 
     /**
      * The result of a connection attempt. A null value for failureCause means that the connection attempt was successful.
@@ -117,6 +120,7 @@ final class ConnectionPool {
         this.minSimultaneousUsagePerConnection = settings.minSimultaneousUsagePerConnection;
         this.maxSimultaneousUsagePerConnection = settings.maxSimultaneousUsagePerConnection;
         this.minInProcess = settings.minInProcessPerConnection;
+        this.postConnectionUsageLambda = settings.postConnectionUsageLambda;
 
         this.connections = new CopyOnWriteArrayList<>();
         this.open = new AtomicInteger();

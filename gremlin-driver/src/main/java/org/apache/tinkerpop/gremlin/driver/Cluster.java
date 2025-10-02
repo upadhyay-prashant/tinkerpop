@@ -61,11 +61,11 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -207,6 +207,7 @@ public final class Cluster {
                 .minConnectionPoolSize(settings.connectionPool.minSize)
                 .connectionSetupTimeoutMillis(settings.connectionPool.connectionSetupTimeoutMillis)
                 .enableUserAgentOnConnect(settings.enableUserAgentOnConnect)
+                .postConnectionUsageLambda(settings.connectionPool.postConnectionUsageLambda)
                 .validationRequest(settings.connectionPool.validationRequest);
 
         if (settings.username != null && settings.password != null)
@@ -612,6 +613,7 @@ public final class Cluster {
         private AuthProperties authProps = new AuthProperties();
         private long connectionSetupTimeoutMillis = Connection.CONNECTION_SETUP_TIMEOUT_MILLIS;
         private boolean enableUserAgentOnConnect = true;
+        private Consumer<Connection> postConnectionUsageLambda = null;
 
         private Builder() {
             // empty to prevent direct instantiation
@@ -628,6 +630,12 @@ public final class Cluster {
             this.nioPoolSize = nioPoolSize;
             return this;
         }
+
+        public Builder postConnectionUsageLambda(final Consumer postConnectionUsageLambda) {
+            this.postConnectionUsageLambda = postConnectionUsageLambda;
+            return this;
+        }
+
 
         /**
          * Size of the pool for handling background work.  Defaults to the number of available processors multiplied
@@ -1124,6 +1132,7 @@ public final class Cluster {
             connectionPoolSettings.channelizer = builder.channelizer;
             connectionPoolSettings.validationRequest = builder.validationRequest;
             connectionPoolSettings.connectionSetupTimeoutMillis = builder.connectionSetupTimeoutMillis;
+            connectionPoolSettings.postConnectionUsageLambda = builder.postConnectionUsageLambda;
 
             sslContextOptional = Optional.ofNullable(builder.sslContext);
 

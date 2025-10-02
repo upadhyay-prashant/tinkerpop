@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -408,6 +409,8 @@ final class Settings {
          * complete by then.
          */
         public long connectionSetupTimeoutMillis = Connection.CONNECTION_SETUP_TIMEOUT_MILLIS;
+
+        public Consumer<Connection> postConnectionUsageLambda = null;
     }
 
     public static class SerializerSettings {

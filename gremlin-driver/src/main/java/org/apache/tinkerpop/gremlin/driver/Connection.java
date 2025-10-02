@@ -106,6 +106,7 @@ final class Connection {
             throw new IllegalStateException("Cannot open a connection with the cluster after close() is called");
 
         final Bootstrap b = this.cluster.getFactory().createBootstrap();
+//        b.option(ChannelOption.SO_TIMEOUT, 10000);
         try {
             if (channelizerClass.get() == null) {
                 channelizerClass.compareAndSet(null, (Class<Channelizer>) Class.forName(cluster.connectionPoolSettings().channelizer));
@@ -130,7 +131,8 @@ final class Connection {
                 if (thisConnection.closeFuture.get() == null) {
                     logger.error(String.format(
                             "Server closed the Connection on channel %s - scheduling removal from %s",
-                            channel.id().asShortText(), thisConnection.pool.getPoolInfo(thisConnection)));
+                            channel.id().asShortText(), /*Not Dumping full channel*/ "EMPTY CHANNEL INFO"));
+//                            thisConnection.pool.getPoolInfo(thisConnection)));
 
                     // delegate the task to scheduler thread and free up the event loop
                     thisConnection.cluster.connectionScheduler().submit(() -> thisConnection.pool.definitelyDestroyConnection(thisConnection));
@@ -160,7 +162,7 @@ final class Connection {
      * should be performed to mark the server host as unavailable.
      */
     public boolean isDead() {
-        return (channel != null && !channel.isActive());
+        return channel == null || !channel.isActive();
     }
 
     boolean isClosing() {
@@ -219,6 +221,8 @@ final class Connection {
 
         final ChannelPromise requestPromise = channel.newPromise()
                 .addListener(f -> {
+                    try {
+
                     if (!f.isSuccess()) {
                         if (logger.isDebugEnabled())
                             logger.debug(String.format("Write on connection %s failed",
@@ -259,6 +263,11 @@ final class Connection {
                         // stages.
                         cluster.executor().submit(() -> resultQueueSetup.complete(
                                 new ResultSet(handler, cluster.executor(), readCompleted, requestMessage, pool.host)));
+                    }
+                    } finally {
+                        if (pool.postConnectionUsageLambda != null) {
+                            pool.postConnectionUsageLambda.accept(this);
+                        }
                     }
                 });
         channel.writeAndFlush(requestMessage, requestPromise);
@@ -391,10 +400,10 @@ final class Connection {
      */
     public String getConnectionInfo(final boolean showHost) {
         return showHost ?
-                String.format("Connection{channel=%s host=%s isDead=%s borrowed=%s pending=%s markedReplaced=%s closing=%s created=%s thread=%s}",
-                        getChannelId(), pool.host.toString(), isDead(), this.borrowed.get(), getPending().size(), this.isBeingReplaced, isClosing(), createdTimestamp, creatingThread) :
-                String.format("Connection{channel=%s isDead=%s borrowed=%s pending=%s markedReplaced=%s closing=%s created=%s thread=%s}",
-                        getChannelId(), isDead(), this.borrowed.get(), getPending().size(), this.isBeingReplaced, isClosing(), createdTimestamp, creatingThread);
+                String.format("Connection{channel=%s channelIsActive=%s host=%s isDead=%s borrowed=%s pending=%s markedReplaced=%s closing=%s created=%s thread=%s}",
+                        getChannelId(), channel.isActive(), pool.host.toString(), isDead(), this.borrowed.get(), getPending().size(), this.isBeingReplaced, isClosing(), createdTimestamp, creatingThread) :
+                String.format("Connection{channel=%s channelIsActive=%s isDead=%s borrowed=%s pending=%s markedReplaced=%s closing=%s created=%s thread=%s}",
+                        getChannelId(), channel.isActive(), isDead(), this.borrowed.get(), getPending().size(), this.isBeingReplaced, isClosing(), createdTimestamp, creatingThread);
     }
 
     /**
